@@ -4,9 +4,7 @@ import './Agendamentos.css';
 const API_BASE_URL = 'https://maya-rpg-api-ckx5.onrender.com/api';
 
 const getAuthHeaders = () => {
-  const token =
-    localStorage.getItem('authToken') ||
-    sessionStorage.getItem('authToken');
+  const token = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
   return {
     Authorization: `Bearer ${token}`,
     'Content-Type': 'application/json',
@@ -16,7 +14,6 @@ const getAuthHeaders = () => {
 const STATUS_LABELS = {
   AGENDADO:  { label: 'Agendado',  className: 'badge-agendado'  },
   CONCLUIDO: { label: 'Concluído', className: 'badge-concluido' },
-  CANCELADO: { label: 'Cancelado', className: 'badge-cancelado' },
 };
 
 const formatarDataHora = (iso) => {
@@ -28,7 +25,6 @@ const formatarDataHora = (iso) => {
   });
 };
 
-/* ── Máscaras ── */
 const formatData = (value) => {
   const v = value.replace(/\D/g, '');
   if (v.length <= 2) return v;
@@ -42,16 +38,12 @@ const formatHora = (value) => {
   return v.replace(/(\d{2})(\d{0,2}).*/, '$1:$2');
 };
 
-/* Converte "DD/MM/AAAA" + "HH:MM" → "YYYY-MM-DDTHH:MM:00" */
 const montarISO = (data, hora) => {
   if (!data || data.length < 10 || !hora || hora.length < 5) return null;
   const [day, month, year] = data.split('/');
   return `${year}-${month}-${day}T${hora}:00`;
 };
 
-/* ============================================================
-   VIEW 1 — Lista de Pacientes
-   ============================================================ */
 const ListaPacientes = ({ onGerenciar }) => {
   const [pacientes, setPacientes] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -100,60 +92,57 @@ const ListaPacientes = ({ onGerenciar }) => {
         />
       </div>
 
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Paciente</th>
-            <th>E-mail</th>
-            <th>Ações</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading && (
-            <tr><td colSpan="4" className="td-center td-muted">Buscando pacientes...</td></tr>
-          )}
-          {error && (
-            <tr><td colSpan="4" className="td-center td-error"><strong>Falha:</strong> {error}</td></tr>
-          )}
-          {!loading && !error && filtrados.length === 0 && (
-            <tr><td colSpan="4" className="td-center">Nenhum paciente encontrado.</td></tr>
-          )}
-          {filtrados.map((p) => (
-            <tr key={p.id}>
-              <td>{p.id}</td>
-              <td><strong>{p.name}</strong></td>
-              <td>{p.email}</td>
-              <td>
-                <button className="btn" onClick={() => onGerenciar(p.id, p.name)}>
-                  Ver Agendamentos
-                </button>
-              </td>
+      <div className="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Paciente</th>
+              <th>E-mail</th>
+              <th>Ações</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {loading && (
+              <tr><td colSpan="4" className="td-center td-muted">Buscando pacientes...</td></tr>
+            )}
+            {error && (
+              <tr><td colSpan="4" className="td-center td-error"><strong>Falha:</strong> {error}</td></tr>
+            )}
+            {!loading && !error && filtrados.length === 0 && (
+              <tr><td colSpan="4" className="td-center">Nenhum paciente encontrado.</td></tr>
+            )}
+            {filtrados.map((p) => (
+              <tr key={p.id}>
+                <td data-label="ID">{p.id}</td>
+                <td data-label="Paciente"><strong>{p.name}</strong></td>
+                <td data-label="E-mail">{p.email}</td>
+                <td data-label="Ações">
+                  <button className="btn" onClick={() => onGerenciar(p.id, p.name)}>
+                    Ver Agendamentos
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };
 
-/* ============================================================
-   VIEW 2 — Painel de Agendamentos do Paciente
-   ============================================================ */
 const PainelAgendamentos = ({ paciente, onVoltar }) => {
   const [agendamentos, setAgendamentos] = useState([]);
   const [loading, setLoading]           = useState(true);
 
-  // form de criação — data e hora agora são campos separados
-  const [form, setForm]       = useState({ data: '', hora: '', observacao: '' });
+  const [form, setForm]           = useState({ data: '', hora: '', observacao: '' });
   const [salvando, setSalvando]   = useState(false);
   const [erroForm, setErroForm]   = useState('');
 
-  // modal de edição de status
-  const [modalAberto, setModalAberto]             = useState(false);
+  const [modalAberto, setModalAberto]                 = useState(false);
   const [agendamentoEditando, setAgendamentoEditando] = useState(null);
-  const [novoStatus, setNovoStatus]               = useState('');
-  const [salvandoStatus, setSalvandoStatus]       = useState(false);
+  const [novoStatus, setNovoStatus]                   = useState('');
+  const [salvandoStatus, setSalvandoStatus]           = useState(false);
 
   useEffect(() => { carregarAgendamentos(); }, [paciente.id]);
 
@@ -175,7 +164,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
     }
   };
 
-  /* ── Máscara nos campos do form ── */
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     let v = value;
@@ -184,7 +172,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
     setForm((prev) => ({ ...prev, [name]: v }));
   };
 
-  /* ── Criar agendamento ── */
   const criarAgendamento = async (e) => {
     e.preventDefault();
     setErroForm('');
@@ -210,7 +197,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.messagem || `Erro HTTP ${res.status}`);
       }
-      alert('Agendamento criado com sucesso!');
       setForm({ data: '', hora: '', observacao: '' });
       carregarAgendamentos();
     } catch (e) {
@@ -220,14 +206,12 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
     }
   };
 
-  /* ── Abrir modal de edição de status ── */
   const abrirEdicao = (agendamento) => {
     setAgendamentoEditando(agendamento);
     setNovoStatus(agendamento.status);
     setModalAberto(true);
   };
 
-  /* ── Salvar novo status ── */
   const salvarStatus = async () => {
     if (!agendamentoEditando) return;
     setSalvandoStatus(true);
@@ -249,7 +233,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
     }
   };
 
-  /* ── Cancelar agendamento ── */
   const cancelarAgendamento = async (ag) => {
     if (!window.confirm(`Cancelar agendamento de ${formatarDataHora(ag.dataHora)}?`)) return;
     try {
@@ -278,14 +261,11 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
         </div>
       </div>
 
-      {/* ── FORMULÁRIO DE CRIAÇÃO ── */}
       <details className="gaveta" open>
         <summary>+ Criar Novo Agendamento</summary>
         <div className="gaveta-content">
           <form onSubmit={criarAgendamento}>
             <div className="linha-agendamento">
-
-              {/* Data — mesmo padrão do CadastrarPaciente */}
               <div className="form-group">
                 <label>Data *</label>
                 <input
@@ -299,7 +279,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
                 />
               </div>
 
-              {/* Hora — campo de texto com máscara HH:MM */}
               <div className="form-group">
                 <label>Horário *</label>
                 <input
@@ -313,7 +292,7 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
                 />
               </div>
 
-              <div className="form-group" style={{ flex: 2 }}>
+              <div className="form-group obs-group">
                 <label>Observações</label>
                 <input
                   type="text"
@@ -336,7 +315,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
         </div>
       </details>
 
-      {/* ── AGENDAMENTOS ATIVOS ── */}
       <div className="section-header" style={{ marginTop: '30px' }}>
         <h4>Consultas Agendadas ({agendamentosAtivos.length})</h4>
       </div>
@@ -356,7 +334,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
         ))
       )}
 
-      {/* ── HISTÓRICO ── */}
       {agendamentosPassados.length > 0 && (
         <details className="gaveta" style={{ marginTop: '20px' }}>
           <summary>Histórico ({agendamentosPassados.length} registros)</summary>
@@ -373,7 +350,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
         </details>
       )}
 
-      {/* ── MODAL DE EDIÇÃO DE STATUS ── */}
       {modalAberto && agendamentoEditando && (
         <div className="modal-overlay" onClick={() => setModalAberto(false)}>
           <div className="modal-box" onClick={(e) => e.stopPropagation()}>
@@ -388,7 +364,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
               <select value={novoStatus} onChange={(e) => setNovoStatus(e.target.value)}>
                 <option value="AGENDADO">Agendado</option>
                 <option value="CONCLUIDO">Concluído</option>
-                <option value="CANCELADO">Cancelado</option>
               </select>
             </div>
 
@@ -411,7 +386,6 @@ const PainelAgendamentos = ({ paciente, onVoltar }) => {
   );
 };
 
-/* ── Card de Agendamento ── */
 const AgendamentoCard = ({ ag, onEditar, onCancelar, somenteLeitura = false }) => {
   const statusInfo = STATUS_LABELS[ag.status] || { label: ag.status, className: '' };
 
@@ -440,11 +414,8 @@ const AgendamentoCard = ({ ag, onEditar, onCancelar, somenteLeitura = false }) =
   );
 };
 
-/* ============================================================
-   COMPONENTE PRINCIPAL
-   ============================================================ */
 const Agendamentos = () => {
-  const [view, setView]                 = useState('lista');
+  const [view, setView]                   = useState('lista');
   const [pacienteAtivo, setPacienteAtivo] = useState(null);
 
   const abrirPaciente = (id, nome) => {

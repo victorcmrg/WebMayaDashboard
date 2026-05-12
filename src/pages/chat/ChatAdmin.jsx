@@ -3,9 +3,6 @@ import { db } from '../../firebase/firebaseConfig';
 import { ref, onValue, push, set, update, remove } from 'firebase/database';
 import './ChatAdmin.css';
 
-/* ============================================================
-   SISTEMA DE TOAST NOTIFICATIONS
-   ============================================================ */
 const ToastItem = ({ id, message, type, onRemove }) => {
   const [isClosing, setIsClosing] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -31,38 +28,38 @@ const ToastItem = ({ id, message, type, onRemove }) => {
   );
 };
 
-/* ============================================================
-   COMPONENTE PRINCIPAL DE CHAT
-   ============================================================ */
 const ChatAdmin = () => {
-  const [tickets, setTickets] = useState([]);
+  const [tickets, setTickets]               = useState([]);
   const [activeTicketId, setActiveTicketId] = useState(null);
-  const [mensagem, setMensagem] = useState('');
-  const [showInfo, setShowInfo] = useState(false);
-  const messagesEndRef = useRef(null);
-
-  // Estado dos Toasts
-  const [toasts, setToasts] = useState([]);
+  const [mensagem, setMensagem]             = useState('');
+  const [showInfo, setShowInfo]             = useState(false);
+  const [mobileView, setMobileView]         = useState('list');
+  const messagesEndRef                      = useRef(null);
+  const [toasts, setToasts]                 = useState([]);
 
   const showToast = (message, type = 'success') => {
-    const newToast = { id: Date.now() + Math.random(), message, type };
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => [...prev, { id: Date.now() + Math.random(), message, type }]);
   };
 
   const removeToast = (id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+    setToasts((prev) => prev.filter((t) => t.id !== id));
   };
+
+  const ordenarTickets = (arr) =>
+    [...arr].sort((a, b) => {
+      const aN = (a.naoLidasAdmin || 0) > 0 ? 1 : 0;
+      const bN = (b.naoLidasAdmin || 0) > 0 ? 1 : 0;
+      if (bN !== aN) return bN - aN;
+      return b.id.localeCompare(a.id);
+    });
 
   useEffect(() => {
     const chatsRef = ref(db, 'chats');
     const unsubscribe = onValue(chatsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
-        const ticketsArray = Object.keys(data).map(key => ({
-          id: key,
-          ...data[key]
-        }));
-        setTickets(ticketsArray.sort((a, b) => b.id.localeCompare(a.id)));
+        const arr = Object.keys(data).map((key) => ({ id: key, ...data[key] }));
+        setTickets(ordenarTickets(arr));
       } else {
         setTickets([]);
       }
@@ -72,8 +69,7 @@ const ChatAdmin = () => {
 
   useEffect(() => {
     if (activeTicketId) {
-      const ticketRef = ref(db, `chats/${activeTicketId}`);
-      update(ticketRef, { naoLidasAdmin: 0 });
+      update(ref(db, `chats/${activeTicketId}`), { naoLidasAdmin: 0 });
       setShowInfo(false);
     }
   }, [activeTicketId]);
@@ -82,54 +78,58 @@ const ChatAdmin = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [activeTicketId, tickets]);
 
+  const handleSelecionarTicket = (id) => {
+    setActiveTicketId(id);
+    setMobileView('chat');
+  };
+
   const handleEnviarMensagem = async (e) => {
     e.preventDefault();
     if (!mensagem.trim() || !activeTicketId) return;
-
     try {
-      const horaAtual = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      const novaMensagemRef = push(ref(db, `chats/${activeTicketId}/mensagens`));
-
-      await set(novaMensagemRef, {
+      const hora = new Date().toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      await set(push(ref(db, `chats/${activeTicketId}/mensagens`)), {
         remetente: 'admin',
         texto: mensagem,
-        horario: horaAtual
+        horario: hora,
       });
-
-      const ticketAtivo = tickets.find(t => t.id === activeTicketId);
+      const ticketAtivo = tickets.find((t) => t.id === activeTicketId);
       if (ticketAtivo) {
-        const naoLidasPac = (ticketAtivo.naoLidasPaciente || 0) + 1;
-        await update(ref(db, `chats/${activeTicketId}`), { naoLidasPaciente: naoLidasPac });
+        await update(ref(db, `chats/${activeTicketId}`), {
+          naoLidasPaciente: (ticketAtivo.naoLidasPaciente || 0) + 1,
+        });
       }
-
       setMensagem('');
-    } catch (err) {
+    } catch {
       showToast('Erro ao enviar mensagem.', 'error');
     }
   };
 
   const handleDeletarTicket = async (ticketId, e) => {
     e.stopPropagation();
-    
-    // Popup simples de confirmação nativo
-    if (!window.confirm('Tem certeza que deseja apagar este chat permanentemente? Esta ação não pode ser desfeita.')) return;
-    
+    if (!window.confirm('Tem certeza que deseja apagar este chat permanentemente?')) return;
     try {
       await remove(ref(db, `chats/${ticketId}`));
-      if (activeTicketId === ticketId) setActiveTicketId(null);
+      if (activeTicketId === ticketId) {
+        setActiveTicketId(null);
+        setMobileView('list');
+      }
       showToast('Chat deletado com sucesso!', 'success');
-    } catch (err) {
+    } catch {
       showToast('Erro ao deletar chat.', 'error');
     }
   };
 
-  const activeTicket = tickets.find(t => t.id === activeTicketId);
-  const mensagensArray = activeTicket?.mensagens ? Object.values(activeTicket.mensagens) : [];
+  const activeTicket   = tickets.find((t) => t.id === activeTicketId);
+  const mensagensArray = activeTicket?.mensagens
+    ? Object.values(activeTicket.mensagens)
+    : [];
 
   return (
     <div className="page-content">
-      
-      {/* CONTAINER DE TOASTS */}
       <div className="maya-toast-container">
         {toasts.map((toast) => (
           <ToastItem
@@ -144,18 +144,20 @@ const ChatAdmin = () => {
 
       <div className="chat-wrapper shadow-container">
 
-        {/* Painel Esquerdo (Lista de Chats) */}
-        <div className="chat-sidebar">
+        <div className={`chat-sidebar${mobileView === 'chat' ? ' mobile-hidden' : ''}`}>
           <div className="chat-header">
             <h3>Atendimentos</h3>
             <span className="chat-count">{tickets.length} abertos</span>
           </div>
           <div className="ticket-list">
-            {tickets.map(ticket => (
+            {tickets.length === 0 && (
+              <p className="empty-text">Nenhum chat aberto.</p>
+            )}
+            {tickets.map((ticket) => (
               <div
                 key={ticket.id}
-                className={`ticket-item ${activeTicketId === ticket.id ? 'active' : ''}`}
-                onClick={() => setActiveTicketId(ticket.id)}
+                className={`ticket-item${activeTicketId === ticket.id ? ' active' : ''}${(ticket.naoLidasAdmin || 0) > 0 ? ' has-notif' : ''}`}
+                onClick={() => handleSelecionarTicket(ticket.id)}
               >
                 <div className="ticket-info">
                   <h4>{ticket.titulo}</h4>
@@ -164,10 +166,8 @@ const ChatAdmin = () => {
                   </span>
                   <span>Aberto em: {ticket.data}</span>
                 </div>
-                
-                {/* Ações do Chat (Badge e Lixeira Visível) */}
                 <div className="ticket-actions">
-                  {ticket.naoLidasAdmin > 0 && (
+                  {(ticket.naoLidasAdmin || 0) > 0 && (
                     <div className="badge">{ticket.naoLidasAdmin}</div>
                   )}
                   <button
@@ -180,15 +180,16 @@ const ChatAdmin = () => {
                 </div>
               </div>
             ))}
-            {tickets.length === 0 && <p className="empty-text">Nenhum chat aberto.</p>}
           </div>
         </div>
 
-        {/* Painel Direito (Mensagens) */}
-        <div className="chat-main">
+        <div className={`chat-main${mobileView === 'list' ? ' mobile-hidden' : ''}`}>
           {activeTicketId ? (
             <>
               <div className="chat-header main">
+                <button className="btn-voltar-mobile" onClick={() => setMobileView('list')}>
+                  ← Voltar
+                </button>
                 <div className="chat-header-info">
                   <h3>{activeTicket?.titulo}</h3>
                   <span className="chat-header-paciente">
@@ -197,14 +198,12 @@ const ChatAdmin = () => {
                 </div>
                 <button
                   className="btn-info-toggle"
-                  onClick={() => setShowInfo(v => !v)}
-                  title="Ver dados do paciente"
+                  onClick={() => setShowInfo((v) => !v)}
                 >
                   ℹ️ Info
                 </button>
               </div>
 
-              {/* Painel de informações do paciente */}
               {showInfo && (
                 <div className="paciente-info-panel">
                   <h4>Dados do Paciente</h4>
@@ -237,7 +236,10 @@ const ChatAdmin = () => {
 
               <div className="messages-area">
                 {mensagensArray.map((msg, index) => (
-                  <div key={index} className={`message-bubble ${msg.remetente === 'admin' ? 'admin' : 'paciente'}`}>
+                  <div
+                    key={index}
+                    className={`message-bubble ${msg.remetente === 'admin' ? 'admin' : 'paciente'}`}
+                  >
                     <p>{msg.texto}</p>
                     <span className="time">{msg.horario}</span>
                   </div>
@@ -258,7 +260,11 @@ const ChatAdmin = () => {
             </>
           ) : (
             <div className="no-chat-selected">
-              <img src="/logo_maya.png" alt="Maya" style={{ width: 100, opacity: 0.2, marginBottom: 20 }} />
+              <img
+                src="/logo_maya.png"
+                alt="Maya"
+                style={{ width: 100, opacity: 0.2, marginBottom: 20 }}
+              />
               <h3>Selecione um chat na lista ao lado para iniciar</h3>
             </div>
           )}
